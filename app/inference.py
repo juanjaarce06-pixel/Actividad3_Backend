@@ -1,25 +1,30 @@
-import torch
-import torchvision.transforms as T
-from torchvision import models
+# app/inference.py (MOCK - sin PyTorch)
 from PIL import Image
 from io import BytesIO
-from .storage import download_model
-_model, _classes = None, None
-_pre = T.Compose([T.Resize((224,224)), T.ToTensor(),
-    T.Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])])
+import hashlib
+
+# Clases de ejemplo
+_classes = ["cat", "dog", "bird"]
+
 def load():
-    global _model, _classes
-    local = download_model()
-    ckpt = torch.load(local, map_location="cpu")
-    _classes = ckpt["classes"]
-    m = models.resnet18(weights=None)
-    m.fc = torch.nn.Linear(m.fc.in_features, len(_classes))
-    m.load_state_dict(ckpt["state_dict"]); m.eval()
-    _model = m; return True
+    # No carga de modelo; deja todo listo para /health
+    return True
+
+def _stable_probs_from_bytes(b: bytes, n: int):
+    # Genera probabilidades pseudo-determinísticas a partir del hash del archivo
+    h = hashlib.sha256(b).digest()
+    vals = [h[i] / 255 for i in range(n)]
+    s = sum(vals) or 1.0
+    return [v / s for v in vals]
+
 def predict_image(file_bytes):
-    img = Image.open(BytesIO(file_bytes)).convert("RGB")
-    x = _pre(img).unsqueeze(0)
-    with torch.no_grad():
-        probs = torch.softmax(_model(x), dim=1)[0]
-    top1 = int(probs.argmax().item())
-    return _classes[top1], float(probs[top1]), { _classes[i]: float(probs[i]) for i in range(len(_classes)) }
+    # Abrir imagen (valida formato) — no se usa para inferencia real
+    Image.open(BytesIO(file_bytes)).convert("RGB")
+
+    probs = _stable_probs_from_bytes(file_bytes, len(_classes))
+    # Top-1
+    top1_idx = max(range(len(probs)), key=lambda i: probs[i])
+    top1 = _classes[top1_idx]
+    # Dict de probabilidades
+    all_probs = { _classes[i]: float(probs[i]) for i in range(len(_classes)) }
+    return top1, float(probs[top1_idx]), all_probs
