@@ -1,0 +1,11 @@
+<!doctype html><meta charset="utf-8">
+<h2>Clasificador (demo backend)</h2>
+<form id="f"><input type="file" name="file" accept="image/*"><button>Predecir</button></form>
+<pre id="out"></pre>
+<script>
+document.getElementById('f').onsubmit = async (e)=>{
+  e.preventDefault();
+  const r = await fetch('/predict',{method:'POST', body:new FormData(e.target)});
+  document.getElementById('out').textContent = JSON.stringify(await r.json(), null, 2);
+};
+</script>
